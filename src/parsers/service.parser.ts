@@ -18,7 +18,6 @@ const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream'];
 
 export class ServiceParser implements ParserInterface {
 	public extract(source: string, filePath: string): TranslationCollection | null {
-		source = source.replace(/\$filter\(\'translate\'\)/g, 'translate.get');
 		const sourceFile = tsquery.ast(source, filePath);
 
 		const classDeclarations = findClassDeclarations(sourceFile);
