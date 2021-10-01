@@ -64,6 +64,9 @@ export class DirectiveParser implements ParserInterface {
 	protected getElementsWithTranslateAttribute(nodes: Node[]): ElementLike[] {
 		let elements: ElementLike[] = [];
 		nodes.filter(this.isElementLike).forEach((element) => {
+			if ((element instanceof Element) && element.name === TRANSLATE_ATTR_NAME) {
+				elements = [...elements, element];
+			}
 			if (this.hasAttribute(element, TRANSLATE_ATTR_NAME)) {
 				elements = [...elements, element];
 			}
