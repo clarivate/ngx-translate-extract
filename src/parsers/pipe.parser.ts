@@ -16,8 +16,10 @@ import {
 import { ParserInterface } from './parser.interface';
 import { TranslationCollection } from '../utils/translation.collection';
 import { isPathAngularComponent, extractComponentInlineTemplate } from '../utils/utils';
+import { TextAttribute } from '@angular/compiler/src/render3/r3_ast';
 
 const TRANSLATE_PIPE_NAME = 'translate';
+const FIELD_ATTR_NAME = 'field';
 
 export class PipeParser implements ParserInterface {
 	public extract(source: string, filePath: string): TranslationCollection | null {
@@ -56,7 +58,7 @@ export class PipeParser implements ParserInterface {
 
 		if (node?.attributes) {
 			const translateableAttributes = node.attributes.filter((attr: TmplAstTextAttribute) => {
-				return attr.name === TRANSLATE_PIPE_NAME;
+				return attr.name === TRANSLATE_PIPE_NAME || (attr.name === FIELD_ATTR_NAME && attr?.value?.includes(TRANSLATE_PIPE_NAME));
 			});
 			ret = [...ret, ...translateableAttributes];
 		}
@@ -73,7 +75,7 @@ export class PipeParser implements ParserInterface {
 		return ret;
 	}
 
-	protected parseTranslationKeysFromPipe(pipeContent: BindingPipe | LiteralPrimitive | Conditional): string[] {
+	protected parseTranslationKeysFromPipe(pipeContent: BindingPipe | LiteralPrimitive | Conditional | TextAttribute): string[] {
 		const ret: string[] = [];
 		if (pipeContent instanceof LiteralPrimitive) {
 			ret.push(pipeContent.value);
@@ -84,6 +86,13 @@ export class PipeParser implements ParserInterface {
 			ret.push(...this.parseTranslationKeysFromPipe(falseExp));
 		} else if (pipeContent instanceof BindingPipe) {
 			ret.push(...this.parseTranslationKeysFromPipe(pipeContent.exp as any));
+		} else if (pipeContent instanceof TextAttribute) {
+			const value = /\('(.*?)' \| translate\)/gis.exec(pipeContent.value);
+			if (value && value.length > 0) {
+				for (let i = 1; i < value.length; i++) {
+					ret.push(value[i]);
+				}
+			}
 		}
 		return ret;
 	}
