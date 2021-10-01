@@ -8,10 +8,12 @@ const MARKER_MODULE_NAME = '@biesbjerg/ngx-translate-extract-marker';
 const MARKER_IMPORT_NAME = 'marker';
 
 export class MarkerParser implements ParserInterface {
+	constructor(private marker?: string) {}
+
 	public extract(source: string, filePath: string): TranslationCollection | null {
 		const sourceFile = tsquery.ast(source, filePath);
 
-		const markerImportName = getNamedImportAlias(sourceFile, MARKER_MODULE_NAME, MARKER_IMPORT_NAME);
+		const markerImportName = this.marker || getNamedImportAlias(sourceFile, MARKER_MODULE_NAME, MARKER_IMPORT_NAME);
 		if (!markerImportName) {
 			return null;
 		}
@@ -20,6 +22,17 @@ export class MarkerParser implements ParserInterface {
 
 		const callExpressions = findFunctionCallExpressions(sourceFile, markerImportName);
 		callExpressions.forEach((callExpression) => {
+			if (!callExpression.expression) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.expression) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.expression.escapedText) { return; }
+			// @ts-ignore
+			if (callExpression.expression.expression.escapedText !== markerImportName) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.arguments || callExpression.expression.arguments.length === 0) { return; }
+			// @ts-ignore
+			if (callExpression.expression.arguments[0].text !== 'translate') { return; }
 			const [firstArg] = callExpression.arguments;
 			if (!firstArg) {
 				return;
