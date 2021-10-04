@@ -16,7 +16,6 @@ import {
 import { ParserInterface } from './parser.interface';
 import { TranslationCollection } from '../utils/translation.collection';
 import { isPathAngularComponent, extractComponentInlineTemplate } from '../utils/utils';
-import { TextAttribute } from '@angular/compiler/src/render3/r3_ast';
 
 const TRANSLATE_PIPE_NAME = 'translate';
 const FIELD_ATTR_NAME = 'field';
@@ -28,6 +27,15 @@ export class PipeParser implements ParserInterface {
 		}
 		// Remove AngularJS one time binding to fix the parsing errors
 		source = source.replace(/::/g, '');
+
+		const matches = source.matchAll(/<!--(.*?)-->/gis);
+		for (const match of matches) {
+			if (match && match.length > 1 && match[1].includes('| translate)') && match[1].includes('Possible values')) {
+				const commentContent = match[1].replace(/(\('(.*?)' \| translate\))/gis, '{{\'$2\' | translate}}');
+				source = source.replace(match[0], '<div>' + commentContent + '</div>');
+			}
+		}
+
 		let collection: TranslationCollection = new TranslationCollection();
 		const nodes: TmplAstNode[] = this.parseTemplate(source, filePath);
 		const pipes: BindingPipe[] = nodes.map((node) => this.findPipesInNode(node)).flat();
