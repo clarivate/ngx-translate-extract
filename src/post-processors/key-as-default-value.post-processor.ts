@@ -5,6 +5,6 @@ export class KeyAsDefaultValuePostProcessor implements PostProcessorInterface {
 	public name: string = 'KeyAsDefaultValue';
 
 	public process(draft: TranslationCollection, extracted: TranslationCollection, existing: TranslationCollection): TranslationCollection {
-		return draft.map((key, val) => (val === '' ? key : val));
+		return draft.map((key, val) => (val === '' ? key.replace(/\[CONTEXT\:.*?\](.*)/gis, '$1') : val));
 	}
 }
