@@ -17,7 +17,7 @@ export class JsonCompiler implements CompilerInterface {
 
 	public compile(collection: TranslationCollection): string {
 		collection = collection.remove('');
-		return JSON.stringify(collection.values, null, this.indentation);
+		return JSON.stringify(collection.values, null, this.indentation) + '\n';
 	}
 
 	public parse(contents: string): TranslationCollection {
