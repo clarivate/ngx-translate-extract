@@ -8,10 +8,11 @@ export interface MarkerCustomConfig {
 	marker: string;
 	filePath: string;
 	patterns: MarkerCustomConfigPattern[];
-	replace: string;
 }
 
 export interface MarkerCustomConfigPattern {
 	pattern: string;
 	flags: string;
+	replace: string;
+	sourceFilter: MarkerCustomConfigPattern;
 }
