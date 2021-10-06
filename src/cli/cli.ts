@@ -2,7 +2,7 @@ import * as yargs from 'yargs';
 import { red, green } from 'colorette';
 
 import { ExtractTask } from './tasks/extract.task';
-import { ParserInterface } from '../parsers/parser.interface';
+import { MarkerCustomConfig, ParserInterface } from '../parsers/parser.interface';
 import { PipeParser } from '../parsers/pipe.parser';
 import { DirectiveParser } from '../parsers/directive.parser';
 import { ServiceParser } from '../parsers/service.parser';
@@ -17,6 +17,7 @@ import { CompilerInterface } from '../compilers/compiler.interface';
 import { CompilerFactory } from '../compilers/compiler.factory';
 import { normalizePaths } from '../utils/fs-helpers';
 import { donateMessage } from '../utils/donate';
+const fs = require('fs');
 
 // First parsing pass to be able to access pattern argument for use input/output arguments
 const y = yargs.option('patterns', {
@@ -57,6 +58,11 @@ export const cli = y
 	.coerce('output', (output: string[]) => {
 		const paths = normalizePaths(output, parsed.patterns);
 		return paths;
+	})
+	.option('customConfig', {
+		alias: 'cc',
+		describe: 'Custom Config',
+		type: 'string'
 	})
 	.option('format', {
 		alias: 'f',
@@ -126,8 +132,18 @@ const extractTask = new ExtractTask(cli.input, cli.output, {
 	replace: cli.replace
 });
 
+
+let customConfigs: [MarkerCustomConfig];
+
+try {
+	const data = fs.readFileSync(exports.cli.customConfig, 'utf8');
+	customConfigs = JSON.parse(data);
+} catch (err) {
+	console.error(err);
+}
+
 // Parsers
-const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser(), new MarkerParser(cli.marker)];
+const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser(), new MarkerParser(cli.marker, customConfigs)];
 extractTask.setParsers(parsers);
 
 // Post processors
