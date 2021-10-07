@@ -13,8 +13,8 @@ import {
 	findConstructorDeclaration
 } from '../utils/ast-helpers';
 
-const TRANSLATE_SERVICE_TYPE_REFERENCE = 'TranslateService';
-const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream'];
+const TRANSLATE_SERVICE_TYPE_REFERENCE = 'LocalizationService';
+const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream', 'translate'];
 
 export class ServiceParser implements ParserInterface {
 	public extract(source: string, filePath: string): TranslationCollection | null {
