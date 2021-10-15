@@ -1,5 +1,5 @@
 {
-  "name": "@omr78/ngx-translate-extract",
+  "name": "@clarivate/ngx-translate-extract",
   "version": "1.0.7",
   "description": "Extract strings from projects using ngx-translate",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/omr78/ngx-translate-extract.git"
+    "url": "https://github.com/slargemain/ngx-translate-extract.git"
   },
   "keywords": [
     "angular",
@@ -53,9 +53,9 @@
   "author": "Kim Biesbjerg <kim@biesbjerg.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/omr78/ngx-translate-extract/issues"
+    "url": "https://github.com/slargemain/ngx-translate-extract/issues"
   },
-  "homepage": "https://github.com/omr78/ngx-translate-extract",
+  "homepage": "https://github.com/slargemain/ngx-translate-extract",
   "engines": {
     "node": ">=11.15.0"
   },
