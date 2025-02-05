@@ -1,6 +1,6 @@
 {
   "name": "@clarivate/ngx-translate-extract",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "Extract strings from projects using ngx-translate",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -61,7 +61,7 @@
   },
   "config": {},
   "devDependencies": {
-    "@angular/compiler": "^11.2.9",
+    "@angular/compiler": "18.2.0",
     "@types/braces": "^3.0.0",
     "@types/chai": "^4.2.16",
     "@types/flat": "^5.0.1",
