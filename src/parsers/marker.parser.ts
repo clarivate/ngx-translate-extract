@@ -27,9 +27,14 @@ export class MarkerParser implements ParserInterface {
 		if (this.customConfig) {
 			(this.customConfig).forEach((config) => {
 				if (filePath.includes(config.filePath)) {
-					config.patterns.forEach((patternElement: { pattern: string | RegExp; flags: string }) => {
+					config.patterns.forEach((patternElement) => {
 						const patternRegex = new RegExp(patternElement.pattern, patternElement.flags);
-						const replacedSource = source.replace(patternRegex, config.replace);
+						let sourceFiltered = source;
+						if (patternElement.sourceFilter) {
+							const sourcePatternRegex = new RegExp(patternElement.sourceFilter.pattern, patternElement.sourceFilter.flags);
+							sourceFiltered = source.replace(sourcePatternRegex, patternElement.sourceFilter.replace);
+						}
+						const replacedSource = sourceFiltered.replace(patternRegex, patternElement.replace);
 						const replacedSourceFile = tsquery.ast(replacedSource, filePath);
 						const replacedStrings = this.extractKeysFromSourceFile(replacedSourceFile, config.marker || markerImportName);
 						collection = collection.addKeys(replacedStrings, source);

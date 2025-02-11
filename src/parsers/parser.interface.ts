@@ -13,4 +13,6 @@ export interface MarkerCustomConfig {
 export interface MarkerCustomConfigPattern {
 	pattern: string;
 	flags: string;
+	replace: string;
+	sourceFilter: MarkerCustomConfigPattern;
 }
