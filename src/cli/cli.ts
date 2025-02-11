@@ -66,7 +66,7 @@ const cli = await y
 	.option('format-indentation', {
 		alias: 'fi',
 		describe: 'Format indentation (JSON/Namedspaced JSON)',
-		default: '\t',
+		default: '  ',
 		type: 'string'
 	})
 	.option('replace', {

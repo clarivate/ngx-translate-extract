@@ -92,7 +92,7 @@ export class PipeParser implements ParserInterface {
 				source = source.replace(match[0], '<div>' + commentContent + '</div>');
 			}
 		}
-		
+
 		let collection: TranslationCollection = new TranslationCollection();
 		const nodes: TmplAstNode[] = this.parseTemplate(source, filePath);
 
