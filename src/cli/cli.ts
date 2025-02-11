@@ -158,8 +158,10 @@ const cli = await y
 
 let customConfigs: [MarkerCustomConfig];
 try {
-	const data = fs.readFileSync(exports.cli.customConfig, 'utf8');
-	customConfigs = JSON.parse(data);
+	if (exports.cli.customConfig) {
+		const data = fs.readFileSync(exports.cli.customConfig, 'utf8');
+		customConfigs = JSON.parse(data);
+	}
 } catch (err) {
 	console.error(err);
 }
