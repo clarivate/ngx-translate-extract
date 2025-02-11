@@ -23,8 +23,8 @@ import {
 	getNamedImport
 } from '../utils/ast-helpers.js';
 
-const TRANSLATE_SERVICE_TYPE_REFERENCE = 'TranslateService';
-const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream'];
+const TRANSLATE_SERVICE_TYPE_REFERENCE = 'LocalizationService';
+const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream', 'translate'];
 
 export class ServiceParser implements ParserInterface {
 	private static propertyMap = new Map<string, string[]>();
