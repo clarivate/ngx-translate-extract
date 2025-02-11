@@ -9,10 +9,12 @@ const NGX_TRANSLATE_MARKER_MODULE_NAME = '@ngx-translate/core';
 const NGX_TRANSLATE_MARKER_IMPORT_NAME = '_';
 
 export class MarkerParser implements ParserInterface {
+	constructor(private marker?: string) {}
+
 	public extract(source: string, filePath: string): TranslationCollection | null {
 		const sourceFile = getAST(source, filePath);
 
-		const markerImportName = this.getMarkerImportNameFromSource(sourceFile);
+		const markerImportName = this.marker || this.getMarkerImportNameFromSource(sourceFile);
 		if (!markerImportName) {
 			return null;
 		}
@@ -21,6 +23,17 @@ export class MarkerParser implements ParserInterface {
 
 		const callExpressions = findFunctionCallExpressions(sourceFile, markerImportName);
 		callExpressions.forEach((callExpression) => {
+			if (!callExpression.expression) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.expression) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.expression.escapedText) { return; }
+			// @ts-ignore
+			if (callExpression.expression.expression.escapedText !== markerImportName) { return; }
+			// @ts-ignore
+			if (!callExpression.expression.arguments || callExpression.expression.arguments.length === 0) { return; }
+			// @ts-ignore
+			if (callExpression.expression.arguments[0].text !== 'translate') { return; }
 			const [firstArg] = callExpression.arguments;
 			if (!firstArg) {
 				return;
