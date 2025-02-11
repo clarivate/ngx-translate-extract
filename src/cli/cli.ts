@@ -1,38 +1,42 @@
-import * as yargs from 'yargs';
-import { red, green } from 'colorette';
+import yargs from 'yargs';
+import { green, red } from 'colorette';
 
-import { ExtractTask } from './tasks/extract.task';
-import { MarkerCustomConfig, ParserInterface } from '../parsers/parser.interface';
-import { PipeParser } from '../parsers/pipe.parser';
-import { DirectiveParser } from '../parsers/directive.parser';
-import { ServiceParser } from '../parsers/service.parser';
-import { MarkerParser } from '../parsers/marker.parser';
-import { PostProcessorInterface } from '../post-processors/post-processor.interface';
-import { SortByKeyPostProcessor } from '../post-processors/sort-by-key.post-processor';
-import { KeyAsDefaultValuePostProcessor } from '../post-processors/key-as-default-value.post-processor';
-import { NullAsDefaultValuePostProcessor } from '../post-processors/null-as-default-value.post-processor';
-import { StringAsDefaultValuePostProcessor } from '../post-processors/string-as-default-value.post-processor';
-import { PurgeObsoleteKeysPostProcessor } from '../post-processors/purge-obsolete-keys.post-processor';
-import { CompilerInterface } from '../compilers/compiler.interface';
-import { CompilerFactory } from '../compilers/compiler.factory';
-import { normalizePaths } from '../utils/fs-helpers';
-import { donateMessage } from '../utils/donate';
-const fs = require('fs');
+import { ExtractTask } from './tasks/extract.task.js';
+import { ParserInterface } from '../parsers/parser.interface.js';
+import { PipeParser } from '../parsers/pipe.parser.js';
+import { DirectiveParser } from '../parsers/directive.parser.js';
+import { ServiceParser } from '../parsers/service.parser.js';
+import { MarkerParser } from '../parsers/marker.parser.js';
+import { FunctionParser } from '../parsers/function.parser.js';
+import { PostProcessorInterface } from '../post-processors/post-processor.interface.js';
+import { SortByKeyPostProcessor } from '../post-processors/sort-by-key.post-processor.js';
+import { KeyAsDefaultValuePostProcessor } from '../post-processors/key-as-default-value.post-processor.js';
+import { KeyAsInitialDefaultValuePostProcessor } from '../post-processors/key-as-initial-default-value.post-processor.js';
+import { NullAsDefaultValuePostProcessor } from '../post-processors/null-as-default-value.post-processor.js';
+import { StringAsDefaultValuePostProcessor } from '../post-processors/string-as-default-value.post-processor.js';
+import { PurgeObsoleteKeysPostProcessor } from '../post-processors/purge-obsolete-keys.post-processor.js';
+import { StripPrefixPostProcessor } from '../post-processors/strip-prefix.post-processor.js';
+import { CompilerInterface, CompilerType } from '../compilers/compiler.interface.js';
+import { CompilerFactory } from '../compilers/compiler.factory.js';
+import { normalizePaths } from '../utils/fs-helpers.js';
+import { FileCache } from '../cache/file-cache.js';
+import { TranslationType } from '../utils/translation.collection.js';
 
 // First parsing pass to be able to access pattern argument for use input/output arguments
-const y = yargs.option('patterns', {
+const y = yargs().option('patterns', {
 	alias: 'p',
 	describe: 'Default patterns',
 	type: 'array',
 	default: ['/**/*.html', '/**/*.ts'],
+	string: true,
 	hidden: true
 });
 
-const parsed = y.parse();
+const parsed = await y.parse();
 
-export const cli = y
+const cli = await y
 	.usage('Extract strings from files for translation.\nUsage: $0 [options]')
-	.version(require(__dirname + '/../../package.json').version)
+	.version(process.env.npm_package_version)
 	.alias('version', 'v')
 	.help('help')
 	.alias('help', 'h')
@@ -44,10 +48,7 @@ export const cli = y
 		normalize: true,
 		required: true
 	})
-	.coerce('input', (input: string[]) => {
-		const paths = normalizePaths(input, parsed.patterns);
-		return paths;
-	})
+	.coerce('input', (input: string[]) => normalizePaths(input, parsed.patterns))
 	.option('output', {
 		alias: 'o',
 		describe: 'Paths where you would like to save extracted strings. You can use path expansion, glob patterns and multiple paths',
@@ -55,31 +56,17 @@ export const cli = y
 		normalize: true,
 		required: true
 	})
-	.coerce('output', (output: string[]) => {
-		const paths = normalizePaths(output, parsed.patterns);
-		return paths;
-	})
-	.option('customConfig', {
-		alias: 'cc',
-		describe: 'Custom Config',
-		type: 'string'
-	})
+	.coerce('output', (output: string[]) => normalizePaths(output, parsed.patterns))
 	.option('format', {
 		alias: 'f',
 		describe: 'Format',
-		default: 'json',
-		type: 'string',
-		choices: ['json', 'namespaced-json', 'pot']
+		default: CompilerType.Json,
+		choices: [CompilerType.Json, CompilerType.NamespacedJson, CompilerType.Pot]
 	})
 	.option('format-indentation', {
 		alias: 'fi',
 		describe: 'Format indentation (JSON/Namedspaced JSON)',
-		default: '  ',
-		type: 'string'
-	})
-	.option('marker', {
-		alias: 'm',
-		describe: 'Use a default marker (overrides the default which looks for a direct import fron @biesjberg/ng-translate-extract-marker)',
+		default: '\t',
 		type: 'string'
 	})
 	.option('replace', {
@@ -92,38 +79,73 @@ export const cli = y
 		describe: 'Sort strings in alphabetical order',
 		type: 'boolean'
 	})
+	.option('sort-sensitivity', {
+		alias: 'ss',
+		describe: 'Sort sensitivitiy of strings (only to be used when sorting)',
+		type: 'string',
+		choices: ['base', 'accent', 'case', 'variant'],
+		default: undefined
+	})
+	.option('po-source-locations', {
+		describe: 'Include file location comments in .po files',
+		type: 'boolean',
+		default: true,
+	})
 	.option('clean', {
 		alias: 'c',
 		describe: 'Remove obsolete strings after merge',
 		type: 'boolean'
 	})
+	.option('cache-file', {
+		describe: 'Cache parse results to speed up consecutive runs',
+		type: 'string'
+	})
+	.option('marker', {
+		alias: 'm',
+		describe: 'Name of a custom marker function for extracting strings',
+		type: 'string',
+		default: undefined
+	})
 	.option('key-as-default-value', {
 		alias: 'k',
 		describe: 'Use key as default value',
 		type: 'boolean',
-		conflicts: ['null-as-default-value', 'string-as-default-value']
+		conflicts: ['key-as-initial-default-value', 'null-as-default-value', 'string-as-default-value']
+	})
+	.option('key-as-initial-default-value', {
+		alias: 'ki',
+		describe: 'Use key as initial default value',
+		type: 'boolean',
+		conflicts: ['key-as-default-value', 'null-as-default-value', 'string-as-default-value']
 	})
 	.option('null-as-default-value', {
 		alias: 'n',
 		describe: 'Use null as default value',
 		type: 'boolean',
-		conflicts: ['key-as-default-value', 'string-as-default-value']
+		conflicts: ['key-as-default-value', 'key-as-initial-default-value', 'string-as-default-value']
 	})
 	.option('string-as-default-value', {
 		alias: 'd',
 		describe: 'Use string as default value',
 		type: 'string',
-		conflicts: ['null-as-default-value', 'key-as-default-value']
+		conflicts: ['null-as-default-value', 'key-as-default-value', 'key-as-initial-default-value']
 	})
-	.group(['format', 'format-indentation', 'sort', 'clean', 'replace'], 'Output')
-	.group(['key-as-default-value', 'null-as-default-value', 'string-as-default-value'], 'Extracted key value (defaults to empty string)')
+	.option('strip-prefix', {
+		alias: 'sp',
+		describe: 'Strip a prefix from the extracted key',
+		type: 'string'
+	})
+	.group(['format', 'format-indentation', 'sort', 'sort-sensitivity', 'clean', 'replace', 'strip-prefix', 'po-source-locations'], 'Output')
+	.group(['key-as-default-value', 'key-as-initial-default-value', 'null-as-default-value', 'string-as-default-value'], 'Extracted key value (defaults to empty string)')
 	.conflicts('key-as-default-value', 'null-as-default-value')
-	.example(`$0 -i ./src-a/ -i ./src-b/ -o strings.json`, 'Extract (ts, html) from multiple paths')
-	.example(`$0 -i './{src-a,src-b}/' -o strings.json`, 'Extract (ts, html) from multiple paths using brace expansion')
-	.example(`$0 -i ./src/ -o ./i18n/da.json -o ./i18n/en.json`, 'Extract (ts, html) and save to da.json and en.json')
-	.example(`$0 -i ./src/ -o './i18n/{en,da}.json'`, 'Extract (ts, html) and save to da.json and en.json using brace expansion')
-	.example(`$0 -i './src/**/*.{ts,tsx,html}' -o strings.json`, 'Extract from ts, tsx and html')
-	.example(`$0 -i './src/**/!(*.spec).{ts,html}' -o strings.json`, 'Extract from ts, html, excluding files with ".spec" in filename')
+	.conflicts('key-as-initial-default-value', 'null-as-default-value')
+	.example('$0 -i ./src-a/ -i ./src-b/ -o strings.json', 'Extract (ts, html) from multiple paths')
+	.example("$0 -i './{src-a,src-b}/' -o strings.json", 'Extract (ts, html) from multiple paths using brace expansion')
+	.example('$0 -i ./src/ -o ./i18n/da.json -o ./i18n/en.json', 'Extract (ts, html) and save to da.json and en.json')
+	.example("$0 -i ./src/ -o './i18n/{en,da}.json'", 'Extract (ts, html) and save to da.json and en.json using brace expansion')
+	.example("$0 -i './src/**/*.{ts,tsx,html}' -o strings.json", 'Extract from ts, tsx and html')
+	.example("$0 -i './src/**/!(*.spec).{ts,html}' -o strings.json", 'Extract from ts, html, excluding files with ".spec" in filename')
+	.example("$0 -i ./src/ -o strings.json -sp 'PREFIX.'", "Strip the prefix 'PREFIX.' from the json keys")
 	.wrap(110)
 	.exitProcess(true)
 	.parse(process.argv);
@@ -132,21 +154,18 @@ const extractTask = new ExtractTask(cli.input, cli.output, {
 	replace: cli.replace
 });
 
-
-let customConfigs: [MarkerCustomConfig];
-
-try {
-	if (exports.cli.customConfig) {
-		const data = fs.readFileSync(exports.cli.customConfig, 'utf8');
-		customConfigs = JSON.parse(data);
-	}
-} catch (err) {
-	console.error(err);
-}
-
 // Parsers
-const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser(), new MarkerParser(cli.marker, customConfigs)];
+const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser()];
+if (cli.marker) {
+	parsers.push(new FunctionParser(cli.marker));
+} else {
+	parsers.push(new MarkerParser());
+}
 extractTask.setParsers(parsers);
+
+if (cli.cacheFile) {
+	extractTask.setCache(new FileCache<TranslationType[]>(cli.cacheFile));
+}
 
 // Post processors
 const postProcessors: PostProcessorInterface[] = [];
@@ -155,20 +174,27 @@ if (cli.clean) {
 }
 if (cli.keyAsDefaultValue) {
 	postProcessors.push(new KeyAsDefaultValuePostProcessor());
+} else if (cli.keyAsInitialDefaultValue) {
+	postProcessors.push(new KeyAsInitialDefaultValuePostProcessor());
 } else if (cli.nullAsDefaultValue) {
 	postProcessors.push(new NullAsDefaultValuePostProcessor());
 } else if (cli.stringAsDefaultValue) {
 	postProcessors.push(new StringAsDefaultValuePostProcessor({ defaultValue: cli.stringAsDefaultValue as string }));
 }
 
+if (cli.stripPrefix) {
+	postProcessors.push(new StripPrefixPostProcessor({ prefix: cli.stripPrefix as string }));
+}
+
 if (cli.sort) {
-	postProcessors.push(new SortByKeyPostProcessor());
+	postProcessors.push(new SortByKeyPostProcessor(cli.sortSensitivity));
 }
 extractTask.setPostProcessors(postProcessors);
 
 // Compiler
 const compiler: CompilerInterface = CompilerFactory.create(cli.format, {
-	indentation: cli.formatIndentation
+	indentation: cli.formatIndentation,
+	poSourceLocation: cli.poSourceLocations,
 });
 extractTask.setCompiler(compiler);
 
@@ -176,7 +202,6 @@ extractTask.setCompiler(compiler);
 try {
 	extractTask.execute();
 	console.log(green('\nDone.\n'));
-	console.log(donateMessage);
 	process.exit(0);
 } catch (e) {
 	console.log(red(`\nAn error occurred: ${e}\n`));

@@ -1,27 +1,41 @@
 import {
-	parseTemplate,
-	TmplAstNode as Node,
-	TmplAstElement as Element,
-	TmplAstText as Text,
-	TmplAstTemplate as Template,
-	TmplAstTextAttribute as TextAttribute,
-	TmplAstBoundAttribute as BoundAttribute,
 	AST,
 	ASTWithSource,
-	LiteralPrimitive,
-	Conditional,
 	Binary,
 	BindingPipe,
+	Conditional,
 	Interpolation,
 	LiteralArray,
-	LiteralMap
+	LiteralMap,
+	LiteralPrimitive,
+	parseTemplate,
+	TmplAstBoundAttribute as BoundAttribute,
+	TmplAstElement as Element,
+	TmplAstNode as Node,
+	TmplAstTemplate as Template,
+	TmplAstText as Text,
+	TmplAstTextAttribute as TextAttribute,
+	ParseSourceSpan,
+	TmplAstIfBlock,
+	TmplAstSwitchBlock,
+	TmplAstForLoopBlock,
+	TmplAstDeferredBlock
 } from '@angular/compiler';
 
-import { ParserInterface } from './parser.interface';
-import { TranslationCollection } from '../utils/translation.collection';
-import { isPathAngularComponent, extractComponentInlineTemplate } from '../utils/utils';
+import { ParserInterface } from './parser.interface.js';
+import { TranslationCollection } from '../utils/translation.collection.js';
+import { extractComponentInlineTemplate, isPathAngularComponent } from '../utils/utils.js';
 
-const TRANSLATE_ATTR_NAME = 'translate';
+interface BlockNode {
+	nameSpan: ParseSourceSpan;
+	sourceSpan: ParseSourceSpan;
+	startSourceSpan: ParseSourceSpan;
+	endSourceSpan: ParseSourceSpan | null;
+	children: Node[] | undefined;
+	visit<Result>(visitor: unknown): Result;
+}
+
+export const TRANSLATE_ATTR_NAMES = ['translate', 'marker'];
 type ElementLike = Element | Template;
 
 export class DirectiveParser implements ParserInterface {
@@ -35,23 +49,23 @@ export class DirectiveParser implements ParserInterface {
 		const elements: ElementLike[] = this.getElementsWithTranslateAttribute(nodes);
 
 		elements.forEach((element) => {
-			const attribute = this.getAttribute(element, TRANSLATE_ATTR_NAME);
+			const attribute = this.getAttribute(element, TRANSLATE_ATTR_NAMES);
 			if (attribute?.value) {
-				collection = collection.add(attribute.value);
+				collection = collection.add(attribute.value, '', filePath);
 				return;
 			}
 
-			const boundAttribute = this.getBoundAttribute(element, TRANSLATE_ATTR_NAME);
+			const boundAttribute = this.getBoundAttribute(element, TRANSLATE_ATTR_NAMES);
 			if (boundAttribute?.value) {
 				this.getLiteralPrimitives(boundAttribute.value).forEach((literalPrimitive) => {
-					collection = collection.add(literalPrimitive.value);
+					collection = collection.add(literalPrimitive.value, '', filePath);
 				});
 				return;
 			}
 
 			const textNodes = this.getTextNodes(element);
 			textNodes.forEach((textNode) => {
-				collection = collection.add(textNode.value.trim());
+				collection = collection.add(textNode.value.trim(), '', filePath);
 			});
 		});
 		return collection;
@@ -63,14 +77,12 @@ export class DirectiveParser implements ParserInterface {
 	 */
 	protected getElementsWithTranslateAttribute(nodes: Node[]): ElementLike[] {
 		let elements: ElementLike[] = [];
+
 		nodes.filter(this.isElementLike).forEach((element) => {
-			if ((element instanceof Element) && element.name === TRANSLATE_ATTR_NAME) {
+			if (this.hasAttributes(element, TRANSLATE_ATTR_NAMES)) {
 				elements = [...elements, element];
 			}
-			if (this.hasAttribute(element, TRANSLATE_ATTR_NAME)) {
-				elements = [...elements, element];
-			}
-			if (this.hasBoundAttribute(element, TRANSLATE_ATTR_NAME)) {
+			if (this.hasBoundAttribute(element, TRANSLATE_ATTR_NAMES)) {
 				elements = [...elements, element];
 			}
 			const childElements = this.getElementsWithTranslateAttribute(element.children);
@@ -78,7 +90,40 @@ export class DirectiveParser implements ParserInterface {
 				elements = [...elements, ...childElements];
 			}
 		});
+
+		nodes.filter(this.isBlockNode).forEach((node) => elements.push(...this.getElementsWithTranslateAttributeFromBlockNodes(node)));
+
 		return elements;
+	}
+
+	/**
+	 * Get the child elements that are inside a block node (e.g. @if, @deferred)
+	 */
+	protected getElementsWithTranslateAttributeFromBlockNodes(blockNode: BlockNode) {
+		let blockChildren = blockNode.children;
+
+		if (blockNode instanceof TmplAstIfBlock) {
+			blockChildren = blockNode.branches.map((branch) => branch.children).flat();
+		}
+
+		if (blockNode instanceof TmplAstSwitchBlock) {
+			blockChildren = blockNode.cases.map((branch) => branch.children).flat();
+		}
+
+		if (blockNode instanceof TmplAstForLoopBlock) {
+			const emptyBlockChildren = blockNode.empty?.children ?? [];
+			blockChildren.push(...emptyBlockChildren);
+		}
+
+		if (blockNode instanceof TmplAstDeferredBlock) {
+			const placeholderBlockChildren = blockNode.placeholder?.children ?? [];
+			const loadingBlockChildren = blockNode.loading?.children ?? [];
+			const errorBlockChildren = blockNode.error?.children ?? [];
+
+			blockChildren.push(...placeholderBlockChildren, ...loadingBlockChildren, ...errorBlockChildren);
+		}
+
+		return this.getElementsWithTranslateAttribute(blockChildren);
 	}
 
 	/**
@@ -92,35 +137,37 @@ export class DirectiveParser implements ParserInterface {
 	/**
 	 * Check if attribute is present on element
 	 * @param element
+	 * @param name
 	 */
-	protected hasAttribute(element: ElementLike, name: string): boolean {
+	protected hasAttributes(element: ElementLike, name: string[]): boolean {
 		return this.getAttribute(element, name) !== undefined;
 	}
 
 	/**
 	 * Get attribute value if present on element
 	 * @param element
+	 * @param names
 	 */
-	protected getAttribute(element: ElementLike, name: string): TextAttribute {
-		return element.attributes.find((attribute) => attribute.name === name);
+	protected getAttribute(element: ElementLike, names: string[]): TextAttribute {
+		return element.attributes.find((attribute) => names.includes(attribute.name));
 	}
 
 	/**
 	 * Check if bound attribute is present on element
 	 * @param element
-	 * @param name
+	 * @param names
 	 */
-	protected hasBoundAttribute(element: ElementLike, name: string): boolean {
-		return this.getBoundAttribute(element, name) !== undefined;
+	protected hasBoundAttribute(element: ElementLike, names: string[]): boolean {
+		return this.getBoundAttribute(element, names) !== undefined;
 	}
 
 	/**
 	 * Get bound attribute if present on element
 	 * @param element
-	 * @param name
+	 * @param names
 	 */
-	protected getBoundAttribute(element: ElementLike, name: string): BoundAttribute {
-		return element.inputs.find((input) => input.name === name);
+	protected getBoundAttribute(element: ElementLike, names: string[]): BoundAttribute {
+		return element.inputs.find((input) => names.includes(input.name));
 	}
 
 	/**
@@ -162,6 +209,19 @@ export class DirectiveParser implements ParserInterface {
 	 */
 	protected isElementLike(node: Node): node is ElementLike {
 		return node instanceof Element || node instanceof Template;
+	}
+
+	/**
+	 * Check if node type is BlockNode
+	 * @param node
+	 */
+	protected isBlockNode(node: Node): node is BlockNode {
+		return (
+			Object.hasOwn(node, 'nameSpan') &&
+			Object.hasOwn(node, 'sourceSpan') &&
+			Object.hasOwn(node, 'startSourceSpan') &&
+			Object.hasOwn(node, 'endSourceSpan') 
+		);
 	}
 
 	/**

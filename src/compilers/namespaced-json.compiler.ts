@@ -1,6 +1,6 @@
-import { CompilerInterface } from './compiler.interface';
-import { TranslationCollection } from '../utils/translation.collection';
-import { stripBOM } from '../utils/utils';
+import { CompilerInterface, CompilerOptions } from './compiler.interface.js';
+import {TranslationCollection, TranslationInterface, TranslationType} from '../utils/translation.collection.js';
+import { stripBOM } from '../utils/utils.js';
 
 import { flatten, unflatten } from 'flat';
 
@@ -9,21 +9,24 @@ export class NamespacedJsonCompiler implements CompilerInterface {
 
 	public extension = 'json';
 
-	public constructor(options?: any) {
+	constructor(options?: CompilerOptions) {
 		if (options && typeof options.indentation !== 'undefined') {
 			this.indentation = options.indentation;
 		}
 	}
 
 	public compile(collection: TranslationCollection): string {
-		const values: {} = unflatten(collection.values, {
-			object: true
-		});
+		const values = unflatten(
+			collection.toKeyValueObject(),
+			{object: true}
+		);
 		return JSON.stringify(values, null, this.indentation);
 	}
 
 	public parse(contents: string): TranslationCollection {
-		const values: {} = flatten(JSON.parse(stripBOM(contents)));
-		return new TranslationCollection(values);
+		const values: Record<string, string> = flatten(JSON.parse(stripBOM(contents)));
+		const newValues: TranslationType = {};
+		Object.entries(values).forEach(([key, value]: [string, string]) => newValues[key] = <TranslationInterface>{value: value, sourceFiles: []});
+		return new TranslationCollection(newValues);
 	}
 }

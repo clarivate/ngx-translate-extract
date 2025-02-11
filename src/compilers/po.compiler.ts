@@ -1,7 +1,8 @@
-import { CompilerInterface } from './compiler.interface';
-import { TranslationCollection, TranslationType } from '../utils/translation.collection';
+import { CompilerInterface, CompilerOptions } from './compiler.interface.js';
+import {TranslationCollection, TranslationInterface, TranslationType} from '../utils/translation.collection.js';
 
-import { po } from 'gettext-parser';
+import pkg from 'gettext-parser';
+const { po } = pkg;
 
 export class PoCompiler implements CompilerInterface {
 	public extension: string = 'po';
@@ -11,7 +12,12 @@ export class PoCompiler implements CompilerInterface {
 	 */
 	public domain: string = '';
 
-	public constructor(options?: any) {}
+	/** Whether to include file location comments. **/
+	private readonly includeSources: boolean = true;
+
+	constructor(options?: CompilerOptions) {
+		this.includeSources = options?.poSourceLocation ?? true;
+	}
 
 	public compile(collection: TranslationCollection): string {
 		const data = {
@@ -22,15 +28,22 @@ export class PoCompiler implements CompilerInterface {
 				'content-transfer-encoding': '8bit'
 			},
 			translations: {
-				[this.domain]: Object.keys(collection.values).reduce((translations, key) => {
-					return {
-						...translations,
-						[key]: {
-							msgid: key,
-							msgstr: collection.get(key)
-						}
-					};
-				}, {} as any)
+				[this.domain]: Object.keys(collection.values)
+					.reduce(
+						(translations, key) => {
+							const entry: TranslationInterface = collection.get(key);
+							const comments = this.includeSources ? {reference: entry.sourceFiles?.join('\n')} : undefined;
+							return {
+								...translations,
+								[key]: {
+									msgid: key,
+									msgstr: entry.value,
+									comments: comments
+								}
+							};
+						},
+						{}
+					)
 			}
 		};
 
@@ -42,18 +55,16 @@ export class PoCompiler implements CompilerInterface {
 
 		const parsedPo = po.parse(contents, 'utf8');
 
-		if (!parsedPo.translations.hasOwnProperty(this.domain)) {
+		if (!Object.hasOwn(parsedPo.translations, this.domain)) {
 			return collection;
 		}
 
 		const values = Object.keys(parsedPo.translations[this.domain])
 			.filter((key) => key.length > 0)
-			.reduce((result, key) => {
-				return {
-					...result,
-					[key]: parsedPo.translations[this.domain][key].msgstr.pop()
-				};
-			}, {} as TranslationType);
+			.reduce((result, key) => ({
+				...result,
+				[key]: {value: parsedPo.translations[this.domain][key].msgstr.pop(), sourceFiles: parsedPo.translations[this.domain][key].comments?.reference?.split('\n') || []}
+			}), {} as TranslationType);
 
 		return new TranslationCollection(values);
 	}
