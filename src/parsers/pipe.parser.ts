@@ -16,14 +16,14 @@ import {
 	TmplAstForLoopBlock,
 	TmplAstElement,
 	KeyedRead,
-	ASTWithSource,
+	ASTWithSource, TextAttribute
 } from '@angular/compiler';
 
 import { ParserInterface } from './parser.interface.js';
 import { TranslationCollection } from '../utils/translation.collection.js';
 import { isPathAngularComponent, extractComponentInlineTemplate } from '../utils/utils.js';
 
-export const TRANSLATE_PIPE_NAMES = ['translate', 'marker'];
+export const TRANSLATE_PIPE_NAMES = ['translate', 'marker', 'field'];
 
 function traverseAstNodes<RESULT, NODE extends TmplAstNode | TmplAstElement>(
 	nodes: (NODE | null)[],
@@ -130,7 +130,7 @@ export class PipeParser implements ParserInterface {
 		return ret;
 	}
 
-	protected parseTranslationKeysFromPipe(pipeContent: AST): string[] {
+	protected parseTranslationKeysFromPipe(pipeContent: AST | TextAttribute): string[] {
 		const ret: string[] = [];
 		if (pipeContent instanceof LiteralPrimitive) {
 			ret.push(`${pipeContent.value}`);
@@ -139,6 +139,13 @@ export class PipeParser implements ParserInterface {
 			ret.push(...this.parseTranslationKeysFromPipe(pipeContent.falseExp));
 		} else if (pipeContent instanceof BindingPipe) {
 			ret.push(...this.parseTranslationKeysFromPipe(pipeContent.exp));
+		} else if (pipeContent instanceof TextAttribute) {
+			const value = /\('(.*?)' \| translate\)/gis.exec(pipeContent.value);
+			if (value && value.length > 0) {
+				for (let i = 1; i < value.length; i++) {
+					ret.push(value[i]);
+				}
+			}
 		}
 		return ret;
 	}
