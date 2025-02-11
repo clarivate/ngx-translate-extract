@@ -24,7 +24,7 @@ import {
 } from '../utils/ast-helpers.js';
 
 const TRANSLATE_SERVICE_TYPE_REFERENCE = 'LocalizationService';
-const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream', 'translate'];
+const TRANSLATE_SERVICE_METHOD_NAMES = ['get', 'instant', 'stream', 'translate', 'translateAsync'];
 
 export class ServiceParser implements ParserInterface {
 	private static propertyMap = new Map<string, string[]>();
