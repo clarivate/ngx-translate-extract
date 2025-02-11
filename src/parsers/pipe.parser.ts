@@ -16,7 +16,7 @@ import {
 	TmplAstForLoopBlock,
 	TmplAstElement,
 	KeyedRead,
-	ASTWithSource, TextAttribute
+	ASTWithSource, TmplAstTextAttribute as TextAttribute
 } from '@angular/compiler';
 
 import { ParserInterface } from './parser.interface.js';
