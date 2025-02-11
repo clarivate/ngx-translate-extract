@@ -16,7 +16,7 @@ import {
 	TmplAstForLoopBlock,
 	TmplAstElement,
 	KeyedRead,
-	ASTWithSource, TmplAstTextAttribute as TextAttribute
+	ASTWithSource
 } from '@angular/compiler';
 
 import { ParserInterface } from './parser.interface.js';
@@ -130,7 +130,7 @@ export class PipeParser implements ParserInterface {
 		return ret;
 	}
 
-	protected parseTranslationKeysFromPipe(pipeContent: AST | TextAttribute): string[] {
+	protected parseTranslationKeysFromPipe(pipeContent: AST): string[] {
 		const ret: string[] = [];
 		if (pipeContent instanceof LiteralPrimitive) {
 			ret.push(`${pipeContent.value}`);
@@ -139,11 +139,14 @@ export class PipeParser implements ParserInterface {
 			ret.push(...this.parseTranslationKeysFromPipe(pipeContent.falseExp));
 		} else if (pipeContent instanceof BindingPipe) {
 			ret.push(...this.parseTranslationKeysFromPipe(pipeContent.exp));
-		} else if (pipeContent instanceof TextAttribute) {
-			const value = /\('(.*?)' \| translate\)/gis.exec(pipeContent.value);
-			if (value && value.length > 0) {
-				for (let i = 1; i < value.length; i++) {
-					ret.push(value[i]);
+		} else {
+			if (pipeContent.constructor.name === 'TextAttribute') {
+				// @ts-ignore
+				const matches = pipeContent.value.matchAll(/\('(.*?)' \| translate\)/gis);
+				for (const match of matches) {
+					if (match && match.length > 1) {
+						ret.push(match[1]);
+					}
 				}
 			}
 		}
