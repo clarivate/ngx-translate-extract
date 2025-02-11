@@ -122,7 +122,6 @@ export class ExtractTask implements TaskInterface {
 				skipped += 1;
 				const cachedCollectionValues = this.cache.get(`${pattern}:${filePath}:${contents}`, () => {
 					skipped -= 1;
-					this.out(dim('- %s'), filePath);
 					return this.parsers
 						.map((parser) => {
 							const extracted = parser.extract(contents, filePath);
