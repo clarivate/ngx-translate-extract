@@ -21,7 +21,7 @@ import { CompilerFactory } from '../compilers/compiler.factory.js';
 import { normalizePaths } from '../utils/fs-helpers.js';
 import { FileCache } from '../cache/file-cache.js';
 import { TranslationType } from '../utils/translation.collection.js';
-const fs = require('fs');
+import fs from 'fs';
 
 // First parsing pass to be able to access pattern argument for use input/output arguments
 const y = yargs().option('patterns', {
@@ -158,8 +158,8 @@ const cli = await y
 
 let customConfigs: [MarkerCustomConfig];
 try {
-	if (exports.cli.customConfig) {
-		const data = fs.readFileSync(exports.cli.customConfig, 'utf8');
+	if (cli.customConfig) {
+		const data = fs.readFileSync(cli.customConfig, 'utf8');
 		customConfigs = JSON.parse(data);
 	}
 } catch (err) {
@@ -171,12 +171,7 @@ const extractTask = new ExtractTask(cli.input, cli.output, {
 });
 
 // Parsers
-const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser()];
-if (cli.marker) {
-	parsers.push(new MarkerParser(cli.marker, customConfigs));
-} else {
-	parsers.push(new MarkerParser());
-}
+const parsers: ParserInterface[] = [new PipeParser(), new DirectiveParser(), new ServiceParser(), new MarkerParser(cli.marker, customConfigs)];
 extractTask.setParsers(parsers);
 
 if (cli.cacheFile) {
