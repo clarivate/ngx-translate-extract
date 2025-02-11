@@ -177,7 +177,7 @@ export function findFunctionCallExpressions(node: Node, fnName: string | string[
 	if (Array.isArray(fnName)) {
 		fnName = fnName.join('|');
 	}
-	const query = `CallExpression:has(Identifier[name="${fnName}"]):not(:has(PropertyAccessExpression))`;
+	const query = `CallExpression:has(Identifier[name="${fnName}"])`;
 	return tsquery<CallExpression>(node, query);
 }
 
