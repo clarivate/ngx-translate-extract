@@ -30,7 +30,6 @@ export class ServiceParser implements ParserInterface {
 	private static propertyMap = new Map<string, string[]>();
 
 	public extract(source: string, filePath: string): TranslationCollection | null {
-		source = source.replace(/\$filter\(\'translate\'\)/g, 'translate.get');
 		const sourceFile = getAST(source, filePath);
 		const classDeclarations = findClassDeclarations(sourceFile);
 		const functionDeclarations = findFunctionExpressions(sourceFile);
