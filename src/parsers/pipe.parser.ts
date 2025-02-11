@@ -82,7 +82,8 @@ export class PipeParser implements ParserInterface {
 		if (filePath && isPathAngularComponent(filePath)) {
 			source = extractComponentInlineTemplate(source);
 		}
-
+		// Remove AngularJS one time binding to fix the parsing errors
+		source = source.replace(/::/g, '');
 		let collection: TranslationCollection = new TranslationCollection();
 		const nodes: TmplAstNode[] = this.parseTemplate(source, filePath);
 
