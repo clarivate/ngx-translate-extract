@@ -79,6 +79,10 @@ export class DirectiveParser implements ParserInterface {
 		let elements: ElementLike[] = [];
 
 		nodes.filter(this.isElementLike).forEach((element) => {
+			// @ts-ignore
+			if (TRANSLATE_ATTR_NAMES.includes(element.name)) {
+				elements = [...elements, element];
+			}
 			if (this.hasAttributes(element, TRANSLATE_ATTR_NAMES)) {
 				elements = [...elements, element];
 			}

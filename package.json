@@ -1,6 +1,6 @@
 {
   "name": "@clarivate/ngx-translate-extract",
-  "version": "2.0.4",
+  "version": "2.0.6",
   "description": "Extract strings from projects using ngx-translate",
   "author": "Kim Biesbjerg <kim@biesbjerg.com>",
   "license": "MIT",
